@@ -97,7 +97,7 @@ async function linearizePdfInWorker(pdfData, options) {
       console.warn('Failed to cleanup WASM FS:', cleanupError);
     }
     
-    const outputBuffer = outputFile.buffer;
+    const outputBuffer = outputFile.slice().buffer;
     self.postMessage(
       {
         status: 'success',

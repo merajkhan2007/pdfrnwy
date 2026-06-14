@@ -111,19 +111,7 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({
     link.click();
     document.body.removeChild(link);
 
-    // Revoke the blob URL after a short delay to ensure download starts
-    if (autoRevoke) {
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-        setBlobUrl(null);
-        
-        // Recreate URL for potential re-download
-        if (file) {
-          const newUrl = URL.createObjectURL(file);
-          setBlobUrl(newUrl);
-        }
-      }, 100);
-    }
+    // The blob URL is managed and cleaned up by the useEffect hook above when file changes or component unmounts.
 
     // Mark download as complete
     setTimeout(() => {

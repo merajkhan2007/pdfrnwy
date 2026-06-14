@@ -302,8 +302,8 @@ export function WorkflowControls({
                                     a.click();
                                     document.body.removeChild(a);
                                     
-                                    // Cleanup URL immediately after download
-                                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                                    // Cleanup URL after a safe delay (10 seconds)
+                                    setTimeout(() => URL.revokeObjectURL(url), 10000);
                                 });
                             }}
                         >

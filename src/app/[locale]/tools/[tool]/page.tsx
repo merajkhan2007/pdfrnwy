@@ -153,7 +153,6 @@ export async function generateStaticParams() {
   const tools = getAllTools();
 
   return SUPPORTED_LOCALES
-    .filter(locale => locale !== 'en')
     .flatMap(locale =>
       tools.map(tool => ({
         locale: locale,

@@ -1048,8 +1048,8 @@ for page_num in range(len(doc)):
             if len(image_bytes) < 10000:
                 continue
             
-            # Create pixmap from image data
-            pix = pymupdf.Pixmap(image_bytes)
+            # Create pixmap directly from PDF and xref to avoid format parsing errors
+            pix = pymupdf.Pixmap(doc, xref)
             
             # Check if we need to reduce quality
             if pix.width > 100 and pix.height > 100:
@@ -1066,8 +1066,8 @@ for page_num in range(len(doc)):
                             pix2 = pymupdf.Pixmap(pix, new_width, new_height, None)
                             pix = pix2
                 
-                # Convert to RGB if needed (JPEG doesn't support alpha)
-                if pix.alpha:
+                # Convert to RGB if needed (JPEG doesn't support alpha, and we force DeviceRGB)
+                if not pix.colorspace or pix.colorspace.name != "DeviceRGB" or pix.alpha:
                     pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
                 
                 # Re-encode as JPEG with quality setting
@@ -1075,20 +1075,8 @@ for page_num in range(len(doc)):
                 
                 # Only replace if we actually reduced size
                 if len(new_image_bytes) < len(image_bytes) * 0.9:
-                    # Update the image stream and its dictionary to match JPEG format
-                    doc.update_stream(xref, new_image_bytes)
-                    # Update the image XObject dictionary to reflect JPEG encoding
-                    doc.xref_set_key(xref, "Filter", "/DCTDecode")
-                    doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB")
-                    doc.xref_set_key(xref, "BitsPerComponent", "8")
-                    # Update dimensions if image was resized
-                    doc.xref_set_key(xref, "Width", str(pix.width))
-                    doc.xref_set_key(xref, "Height", str(pix.height))
-                    # Remove DecodeParms that may be left from PNG/Flate encoding
-                    try:
-                        doc.xref_set_key(xref, "DecodeParms", "null")
-                    except:
-                        pass
+                    # Replace the image using page.replace_image (handles dictionary, dimensions, filter, and colorspace)
+                    page.replace_image(xref, stream=new_image_bytes)
         except Exception as e:
             # Skip images that can't be processed
             pass
@@ -1102,7 +1090,6 @@ if remove_metadata:
 pdf_bytes = doc.tobytes(
     garbage=4,  # Remove unused objects, merge duplicate objects
     deflate=True,  # Compress streams
-    clean=True,  # Clean content streams
 )
 doc.close()
 

@@ -188,7 +188,10 @@ export function useBatchProcessing(options: BatchProcessingOptions = {}): UseBat
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Revoke the object URL after a safe delay (10 seconds) to allow the browser to process the download
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 10000);
     });
   }, [files]);
 
@@ -217,7 +220,10 @@ export function useBatchProcessing(options: BatchProcessingOptions = {}): UseBat
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Revoke the object URL after a safe delay (10 seconds) to allow the browser to process the download
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 10000);
   }, [files]);
 
   // Calculate derived state

@@ -107,7 +107,7 @@ function compressPdfInWorker(pdfData, options) {
 
     self.postMessage({ status: 'progress', progress: 100 });
 
-    const outputBuffer = outputBytes.buffer;
+    const outputBuffer = outputBytes.slice().buffer;
     self.postMessage(
       {
         status: 'success',

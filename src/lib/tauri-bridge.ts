@@ -98,5 +98,8 @@ export async function writeFileBytes(path: string, data: Uint8Array): Promise<vo
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Revoke the object URL after a safe delay (10 seconds) to allow the browser to process the download
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 10000);
 }
