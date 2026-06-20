@@ -8,7 +8,8 @@ import { DownloadButton } from '../DownloadButton';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { mergePDFs } from '@/lib/pdf';
-import type { MergeOptions, UploadedFile, ProcessOutput } from '@/types/pdf';
+import type { MergeOptions, ProcessOutput } from '@/types/pdf';
+import { configurePdfjsWorker } from '@/lib/pdf/loader';
 
 /**
  * Generate a unique ID for files
@@ -22,6 +23,55 @@ export interface MergePDFToolProps {
   className?: string;
 }
 
+export interface MergeUploadedFile {
+  id: string;
+  file: File;
+  status: 'pending' | 'processing' | 'complete' | 'error';
+  progress?: number;
+  error?: string;
+  pageCount?: number;
+  preview?: string;
+}
+
+const loadPDFMetadata = async (file: File): Promise<{ pageCount: number; thumbnailUrl: string }> => {
+  try {
+    const pdfjsLib = await import('pdfjs-dist');
+    configurePdfjsWorker(pdfjsLib);
+    const url = URL.createObjectURL(file);
+    const loadingTask = pdfjsLib.getDocument(url);
+    const pdf = await loadingTask.promise;
+    const pageCount = pdf.numPages;
+
+    // Render first page as thumbnail
+    const page = await pdf.getPage(1);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    // Scale for thumbnail (width 120px)
+    const viewport = page.getViewport({ scale: 1.0 });
+    const scale = 120 / viewport.width;
+    const scaledViewport = page.getViewport({ scale });
+    
+    canvas.width = scaledViewport.width;
+    canvas.height = scaledViewport.height;
+    
+    if (context) {
+      await page.render({
+        canvasContext: context,
+        viewport: scaledViewport
+      }).promise;
+    }
+    
+    const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.85);
+    URL.revokeObjectURL(url);
+    
+    return { pageCount, thumbnailUrl };
+  } catch (err) {
+    console.error('Failed to generate thumbnail for:', file.name, err);
+    return { pageCount: 0, thumbnailUrl: '' };
+  }
+};
+
 /**
  * MergePDFTool Component
  * Requirements: 5.1, 5.2
@@ -33,7 +83,7 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
   const tTools = useTranslations('tools');
   
   // State
-  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [files, setFiles] = useState<MergeUploadedFile[]>([]);
   const [status, setStatus] = useState<ProcessingStatus>('idle');
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
@@ -52,7 +102,7 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
    * Handle files selected from uploader
    */
   const handleFilesSelected = useCallback((newFiles: File[]) => {
-    const uploadedFiles: UploadedFile[] = newFiles.map(file => ({
+    const uploadedFiles: MergeUploadedFile[] = newFiles.map(file => ({
       id: generateId(),
       file,
       status: 'pending' as const,
@@ -61,6 +111,22 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
     setFiles(prev => [...prev, ...uploadedFiles]);
     setError(null);
     setResult(null);
+
+    // Asynchronously load page count & render first page thumbnail in background
+    uploadedFiles.forEach(async (uploaded) => {
+      const meta = await loadPDFMetadata(uploaded.file);
+      setFiles(prev => prev.map(f => {
+        if (f.id === uploaded.id) {
+          return {
+            ...f,
+            status: 'complete' as const,
+            preview: meta.thumbnailUrl || undefined,
+            pageCount: meta.pageCount || 1,
+          };
+        }
+        return f;
+      }));
+    });
   }, []);
 
   /**
@@ -220,7 +286,7 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
   const canMerge = files.length >= 2 && !isProcessing;
 
   return (
-    <div className={`space-y-6 ${className}`.trim()}>
+    <div className={`space-y-8 max-w-4xl mx-auto ${className}`.trim()}>
       {/* File Upload Area */}
       <FileUploader
         accept={['application/pdf', '.pdf']}
@@ -229,42 +295,34 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
         onFilesSelected={handleFilesSelected}
         onError={handleUploadError}
         disabled={isProcessing}
-        label={tTools('mergePdf.uploadLabel') || 'Upload PDF Files'}
+        label={tTools('mergePdf.uploadLabel') || 'Choose PDF Files'}
         description={tTools('mergePdf.uploadDescription') || 'Drag and drop PDF files here, or click to browse. You can add multiple files.'}
       />
 
       {/* Error Message */}
       {error && (
         <div 
-          className="p-4 rounded-[var(--radius-md)] bg-red-50 border border-red-200 text-red-700"
+          className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 font-semibold text-sm animate-in fade-in"
           role="alert"
         >
-          <p className="text-sm">{error}</p>
+          <p>{error}</p>
         </div>
       )}
 
       {/* File List */}
       {files.length > 0 && (
-        <Card variant="outlined" size="lg">
+        <div className="bg-white border border-[hsl(var(--color-border))]/60 rounded-[24px] p-6 shadow-sm animate-in fade-in duration-300">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-[hsl(var(--color-foreground))]">
+            <h3 className="text-lg font-bold text-[hsl(var(--color-foreground))]">
               {tTools('mergePdf.filesTitle') || 'Files to Merge'} ({files.length})
             </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearAll}
-              disabled={isProcessing}
-            >
-              {t('buttons.clearAll') || 'Clear All'}
-            </Button>
           </div>
 
-          <p className="text-sm text-[hsl(var(--color-muted-foreground))] mb-4">
+          <p className="text-xs font-semibold text-[hsl(var(--color-muted-foreground))] mb-6">
             {tTools('mergePdf.reorderHint') || 'Drag and drop to reorder files. Files will be merged in the order shown.'}
           </p>
 
-          <ul className="space-y-2" role="list" aria-label="Files to merge">
+          <ul className="space-y-3" role="list" aria-label="Files to merge">
             {files.map((file, index) => (
               <li
                 key={file.id}
@@ -273,16 +331,16 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
                 className={`
-                  flex items-center gap-3 p-3 rounded-[var(--radius-md)] border
-                  transition-all duration-200
-                  ${draggedIndex === index ? 'opacity-50 border-dashed' : ''}
-                  ${dragOverIndex === index ? 'border-[hsl(var(--color-primary))] bg-[hsl(var(--color-primary)/0.05)]' : 'border-[hsl(var(--color-border))]'}
-                  ${!isProcessing ? 'cursor-grab hover:bg-[hsl(var(--color-muted)/0.5)]' : ''}
+                  flex items-center gap-4 p-4 rounded-[24px] bg-white border
+                  transition-all duration-300 shadow-sm hover:shadow-md
+                  ${draggedIndex === index ? 'opacity-40 border-dashed border-[hsl(var(--color-primary))]' : 'border-[hsl(var(--color-border))]/60'}
+                  ${dragOverIndex === index ? 'border-[hsl(var(--color-primary))] bg-[hsl(var(--color-primary)/0.03)] scale-[1.01]' : ''}
+                  ${!isProcessing ? 'cursor-grab hover:border-[hsl(var(--color-primary))]/30' : ''}
                 `}
               >
                 {/* Drag Handle */}
                 <div 
-                  className="flex-shrink-0 text-[hsl(var(--color-muted-foreground))]"
+                  className="flex-shrink-0 text-[hsl(var(--color-muted-foreground))] cursor-grab active:cursor-grabbing hover:text-[hsl(var(--color-primary))] transition-colors p-1"
                   aria-hidden="true"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -295,40 +353,55 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
                   </svg>
                 </div>
 
-                {/* File Number */}
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[hsl(var(--color-primary))] text-[hsl(var(--color-primary-foreground))] text-xs font-medium flex items-center justify-center">
+                {/* Index Number */}
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[hsl(var(--color-primary))/0.1] text-[hsl(var(--color-primary))] text-xs font-extrabold flex items-center justify-center">
                   {index + 1}
                 </span>
 
-                {/* PDF Icon */}
-                <div className="flex-shrink-0">
-                  <svg className="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
-                    <path d="M14 2v6h6" fill="white" />
-                    <text x="7" y="17" fontSize="6" fill="white" fontWeight="bold">PDF</text>
-                  </svg>
+                {/* PDF Thumbnail / Loading state */}
+                <div className="flex-shrink-0 w-16 h-20 rounded-lg overflow-hidden border border-[hsl(var(--color-border))]/80 bg-[hsl(var(--color-muted))/0.2] flex items-center justify-center relative shadow-sm">
+                  {file.preview ? (
+                    <img 
+                      src={file.preview} 
+                      alt={`Page 1 of ${file.file.name}`} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-white animate-pulse">
+                      <svg className="w-8 h-8 text-red-400" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+                        <div className="w-4 h-4 border-2 border-[hsl(var(--color-primary))] border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* File Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(var(--color-foreground))] truncate">
+                  <p className="text-sm font-bold text-[hsl(var(--color-foreground))] truncate">
                     {file.file.name}
                   </p>
-                  <p className="text-xs text-[hsl(var(--color-muted-foreground))]">
-                    {formatSize(file.file.size)}
-                  </p>
+                  <div className="text-xs text-[hsl(var(--color-muted-foreground))] flex flex-wrap items-center gap-2 mt-1.5 font-semibold">
+                    <span>{formatSize(file.file.size)}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--color-border))]" />
+                    <span>
+                      {file.pageCount !== undefined ? `${file.pageCount} page${file.pageCount > 1 ? 's' : ''}` : 'Loading details...'}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Reorder Buttons */}
+                {/* Reorder Buttons (Up/Down) */}
                 <div className="flex-shrink-0 flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => handleMoveUp(index)}
                     disabled={index === 0 || isProcessing}
-                    className="p-1 rounded hover:bg-[hsl(var(--color-muted))] disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--color-muted))] hover:text-[hsl(var(--color-primary))] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label="Move up"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M18 15l-6-6-6 6" />
                     </svg>
                   </button>
@@ -336,10 +409,10 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
                     type="button"
                     onClick={() => handleMoveDown(index)}
                     disabled={index === files.length - 1 || isProcessing}
-                    className="p-1 rounded hover:bg-[hsl(var(--color-muted))] disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg hover:bg-[hsl(var(--color-muted))] hover:text-[hsl(var(--color-primary))] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label="Move down"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M6 9l6 6 6-6" />
                     </svg>
                   </button>
@@ -350,27 +423,27 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
                   type="button"
                   onClick={() => handleRemoveFile(file.id)}
                   disabled={isProcessing}
-                  className="flex-shrink-0 p-1 rounded hover:bg-red-100 text-[hsl(var(--color-muted-foreground))] hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex-shrink-0 p-2 rounded-xl bg-gray-50 hover:bg-red-50 text-[hsl(var(--color-muted-foreground))] hover:text-red-500 transition-all border border-transparent hover:border-red-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                   aria-label={`Remove ${file.file.name}`}
                 >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               </li>
             ))}
           </ul>
-        </Card>
+        </div>
       )}
 
       {/* Options Panel */}
       {files.length >= 2 && (
-        <Card variant="outlined">
-          <h3 className="text-lg font-medium text-[hsl(var(--color-foreground))] mb-4">
+        <div className="bg-white border border-[hsl(var(--color-border))]/60 rounded-[24px] p-6 shadow-sm animate-in fade-in">
+          <h3 className="text-lg font-bold text-[hsl(var(--color-foreground))] mb-4">
             {tTools('mergePdf.optionsTitle') || 'Merge Options'}
           </h3>
           
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
             <input
               type="checkbox"
               id="preserve-bookmarks"
@@ -378,13 +451,13 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
               onChange={(e) => setPreserveBookmarks(e.target.checked)}
               disabled={isProcessing}
               aria-describedby="preserve-bookmarks-description"
-              className="w-4 h-4 rounded border-[hsl(var(--color-border))] text-[hsl(var(--color-primary))] focus:ring-[hsl(var(--color-primary))]"
+              className="w-4.5 h-4.5 rounded-lg border-[hsl(var(--color-border))] text-[hsl(var(--color-primary))] focus:ring-[hsl(var(--color-primary))] cursor-pointer"
             />
-            <span id="preserve-bookmarks-description" className="text-sm text-[hsl(var(--color-foreground))]">
+            <span id="preserve-bookmarks-description" className="text-sm font-semibold text-[hsl(var(--color-foreground))]">
               {tTools('mergePdf.preserveBookmarks') || 'Preserve bookmarks (create bookmark for each file)'}
             </span>
           </label>
-        </Card>
+        </div>
       )}
 
       {/* Processing Progress */}
@@ -399,19 +472,34 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
       )}
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap items-center gap-4">
-        <Button
-          variant="primary"
-          size="lg"
+      <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+        {files.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            disabled={isProcessing}
+            className="px-6 py-3.5 text-sm font-bold text-[hsl(var(--color-muted-foreground))] hover:text-[hsl(var(--color-foreground))] hover:bg-[hsl(var(--color-muted))] rounded-[var(--radius-md)] border border-[hsl(var(--color-border))]/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Clear All
+          </button>
+        )}
+        
+        <button
           onClick={handleMerge}
           disabled={!canMerge}
-          loading={isProcessing}
+          className={`
+            px-8 py-3.5 text-sm font-bold text-white rounded-[var(--radius-md)] shadow-md select-none transition-all flex items-center justify-center gap-2
+            ${canMerge ? 'bg-primary-gradient btn-glow-hover cursor-pointer' : 'bg-gray-300 dark:bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'}
+          `}
         >
-          {isProcessing 
-            ? (t('status.processing') || 'Processing...') 
-            : (tTools('mergePdf.mergeButton') || 'Merge PDFs')
-          }
-        </Button>
+          {isProcessing ? (
+            <>
+              <div className="w-4.5 h-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Merging PDFs ({progress}%)</span>
+            </>
+          ) : (
+            <span>Merge PDFs</span>
+          )}
+        </button>
 
         {result && (
           <DownloadButton
@@ -427,10 +515,10 @@ export function MergePDFTool({ className = '' }: MergePDFToolProps) {
       {/* Success Message */}
       {status === 'complete' && result && (
         <div 
-          className="p-4 rounded-[var(--radius-md)] bg-green-50 border border-green-200 text-green-700"
+          className="p-4 rounded-[var(--radius-md)] bg-green-50 border border-green-200 text-green-700 font-semibold text-sm animate-in fade-in"
           role="status"
         >
-          <p className="text-sm font-medium">
+          <p>
             {tTools('mergePdf.successMessage') || 'PDFs merged successfully! Click the download button to save your file.'}
           </p>
         </div>

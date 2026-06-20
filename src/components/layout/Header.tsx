@@ -165,14 +165,14 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
 
   return (
     <header
-      className={`fixed top-0 z-50 w-full transition-all duration-300 ${scrolled
-        ? 'bg-white shadow-md border-b border-gray-100'
-        : 'bg-white border-b border-gray-100'
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-7xl transition-all duration-300 rounded-[20px] border border-[hsl(var(--color-border))]/60 bg-white/95 backdrop-blur-md shadow-sm ${scrolled
+        ? 'shadow-md border-[hsl(var(--color-border))] bg-white/100'
+        : 'bg-white/80'
         }`}
       role="banner"
     >
-      <div className="container mx-auto px-4">
-        <div className="flex h-20 items-center justify-between">
+      <div className="w-full px-6">
+        <div className="flex h-16 items-center justify-between">
           {/* Logo and Brand */}
           <div className="flex flex-1 items-center gap-2">
             <Link
@@ -185,7 +185,7 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
                 alt="PDFRunway"
                 width={210}
                 height={56}
-                className="h-12 w-auto object-contain"
+                className="h-10 w-auto object-contain"
                 priority
               />
             </Link>
@@ -201,7 +201,7 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
               <Link
                 key={item.href}
                 href={item.href}
-                className="px-4 py-1.5 text-sm font-medium text-gray-600 hover:text-[#E31E24] hover:bg-red-50 rounded-full transition-all"
+                className="px-4 py-1.5 text-sm font-semibold text-[hsl(var(--color-muted-foreground))] hover:text-[hsl(var(--color-primary))] hover:bg-[hsl(var(--color-primary)/0.05)] rounded-full transition-all duration-250"
               >
                 {item.label}
               </Link>
@@ -286,7 +286,7 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
                     size="sm"
                     onClick={handleSearchToggle}
                     aria-label="Open search"
-                    className="relative text-gray-500 hover:text-[#E31E24] hover:bg-red-50"
+                    className="relative text-gray-500 hover:text-[hsl(var(--color-primary))] hover:bg-[hsl(var(--color-primary)/0.05)] rounded-full transition-all duration-200"
                   >
                     <Search className="h-5 w-5" aria-hidden="true" />
                     <span className="ml-2 hidden lg:inline-block text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">⌘K</span>
@@ -332,7 +332,7 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
         {isMobileMenuOpen && (
           <nav
             id="mobile-menu"
-            className="md:hidden py-4 border-t border-gray-100 bg-white shadow-lg"
+            className="md:hidden py-4 border-t border-[hsl(var(--color-border))] bg-white shadow-lg rounded-b-[20px]"
             role="navigation"
             aria-label="Mobile navigation"
           >
@@ -341,7 +341,7 @@ export const Header: React.FC<HeaderProps> = ({ locale, showSearch = true }) => 
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-[#E31E24] hover:bg-red-50 rounded-lg transition-colors"
+                    className="block px-4 py-3 text-base font-semibold text-gray-700 hover:text-[hsl(var(--color-primary))] hover:bg-[hsl(var(--color-primary)/0.05)] rounded-lg transition-colors"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {item.label}

@@ -10,9 +10,12 @@ import { type Locale, getLocalizedPath } from '@/lib/i18n/config';
 import { ToolProvider } from '@/lib/contexts/ToolContext';
 import { getToolIcon } from '@/config/icons';
 import Link from 'next/link';
-import { Home, ChevronRight } from 'lucide-react';
+import { 
+  Home, ChevronRight, Sparkles, Zap, ShieldCheck, Globe, 
+  Trash2, Lock, EyeOff, UserMinus, ChevronDown 
+} from 'lucide-react';
 import { FavoriteButton } from '@/components/ui/FavoriteButton';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { sanitizeHtml } from '@/lib/utils/html-sanitizer';
 
 export interface ToolPageProps {
@@ -26,6 +29,75 @@ export interface ToolPageProps {
   children?: React.ReactNode;
   /** Localized content for related tools */
   localizedRelatedTools?: Record<string, { title: string; description: string }>;
+}
+
+function SecuritySection() {
+  const items = [
+    { icon: Trash2, text: 'Files auto-deleted after processing' },
+    { icon: Lock, text: 'SSL secured connection' },
+    { icon: EyeOff, text: 'Privacy protected, no server logs' },
+    { icon: UserMinus, text: 'No registration required' }
+  ];
+
+  return (
+    <div className="mt-8 flex flex-wrap justify-center items-center gap-6 py-4 px-6 bg-[hsl(var(--color-muted))/0.3] rounded-[16px] border border-[hsl(var(--color-border))]/40 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {items.map((item, idx) => (
+        <div key={idx} className="flex items-center gap-2 text-xs text-[hsl(var(--color-muted-foreground))] font-semibold">
+          <item.icon className="w-4 h-4 text-[hsl(var(--color-primary))]" />
+          <span>{item.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrustIndicators() {
+  const features = [
+    {
+      icon: Sparkles,
+      title: 'Easy to Use',
+      description: 'Simple 3-step processes designed for speed, clarity, and non-technical users.'
+    },
+    {
+      icon: Zap,
+      title: 'Fast & Reliable',
+      description: 'High-performance local compilation keeps processing fast, secure, and responsive.'
+    },
+    {
+      icon: ShieldCheck,
+      title: '100% Secure',
+      description: 'Your documents never leave your browser. Zero uploads, 100% client-side privacy.'
+    },
+    {
+      icon: Globe,
+      title: 'Works Anywhere',
+      description: 'Access the full suite on any browser, system, desktop, or mobile device.'
+    }
+  ];
+
+  return (
+    <section className="mt-24 py-12 border-t border-[hsl(var(--color-border))]/60">
+      <div className="text-center mb-12">
+        <h2 className="text-3xl font-extrabold tracking-tight text-[hsl(var(--color-foreground))] mb-3">
+          Designed for Trust and Speed
+        </h2>
+        <p className="text-[hsl(var(--color-muted-foreground))] max-w-lg mx-auto text-sm font-medium">
+          PDFRunway handles your documents locally, keeping data secure and processing lightning-fast.
+        </p>
+      </div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto px-4">
+        {features.map((feat, idx) => (
+          <div key={idx} className="bg-white border border-[hsl(var(--color-border))]/60 rounded-[24px] p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF5FA2]/10 to-[#7C5CFF]/10 flex items-center justify-center mb-4">
+              <feat.icon className="w-6 h-6 text-[hsl(var(--color-primary))]" />
+            </div>
+            <h3 className="font-bold text-lg text-[hsl(var(--color-foreground))] mb-2">{feat.title}</h3>
+            <p className="text-sm text-[hsl(var(--color-muted-foreground))] leading-relaxed">{feat.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 const categoryTranslationKeys: Record<ToolCategory, string> = {
@@ -103,11 +175,17 @@ export function ToolPage({ tool, content, locale, children, localizedRelatedTool
               {children}
             </section>
 
-            {/* Description Section */}
-            <DescriptionSection description={content.description} />
+            {/* Security Section */}
+            <SecuritySection />
+
+            {/* Trust Indicators Section */}
+            <TrustIndicators />
 
             {/* How to Use Section */}
             <HowToUseSection steps={content.howToUse} />
+
+            {/* Description Section */}
+            <DescriptionSection description={content.description} />
 
             {/* Use Cases Section */}
             <UseCasesSection useCases={content.useCases} />
@@ -146,6 +224,15 @@ function ToolHeader({ tool, content }: ToolHeaderProps) {
 
   const IconComponent = getToolIcon(tool.icon);
 
+  const formatTitle = (title: string) => {
+    if (!title) return '';
+    const regex = /(PDFs?)/gi;
+    const parts = title.split(regex);
+    return parts.map((part, index) => 
+      regex.test(part) ? <span key={index} className="text-gradient-primary font-black">{part}</span> : part
+    );
+  };
+
   return (
     <header className="text-center" data-testid="tool-page-header" itemScope itemType="https://schema.org/SoftwareApplication">
       <meta itemProp="applicationCategory" content="UtilitiesApplication" />
@@ -160,14 +247,14 @@ function ToolHeader({ tool, content }: ToolHeaderProps) {
         <IconComponent className="w-8 h-8 text-[hsl(var(--color-primary))]" />
       </div>
       <h1
-        className="text-3xl font-bold text-[hsl(var(--color-foreground))] mb-2"
+        className="text-4xl sm:text-5xl font-extrabold text-[hsl(var(--color-foreground))] mb-4 tracking-tight leading-tight"
         data-testid="tool-page-title"
         itemProp="name"
       >
-        {content.title || toolName}
+        {formatTitle(content.title || toolName)}
       </h1>
       <p
-        className="text-lg text-[hsl(var(--color-muted-foreground))] max-w-2xl mx-auto leading-relaxed mb-4"
+        className="text-base sm:text-lg text-[hsl(var(--color-muted-foreground))] max-w-2xl mx-auto leading-relaxed mb-6 font-medium"
         data-testid="tool-page-subtitle"
         itemProp="description"
       >
@@ -227,48 +314,56 @@ function HowToUseSection({ steps }: HowToUseSectionProps) {
 
   return (
     <section
-      className="mt-10"
+      className="mt-20 py-12 border-t border-[hsl(var(--color-border))]/60"
       data-testid="tool-page-how-to-use"
       aria-labelledby="how-to-use-heading"
       itemScope
       itemType="https://schema.org/HowTo"
     >
-      <h2
-        id="how-to-use-heading"
-        className="text-2xl font-bold text-[hsl(var(--color-foreground))] mb-6"
-        itemProp="name"
-      >
-        {t('tools.howToUse')}
-      </h2>
-      <ol className="grid gap-6 md:grid-cols-3" data-testid="how-to-use-steps">
-        {steps.map((step) => (
-          <li
-            key={step.step}
-            className="flex flex-col h-full"
-            data-testid={`how-to-step-${step.step}`}
-            id={`step-${step.step}`}
-            itemScope
-            itemProp="step"
-            itemType="https://schema.org/HowToStep"
-          >
-            <meta itemProp="position" content={String(step.step)} />
-            <Card className="flex-1 h-full glass-card border-[hsl(var(--color-border))/0.6] hover:border-[hsl(var(--color-primary)/0.3)] transition-colors">
+      <div className="text-center mb-12">
+        <h2
+          id="how-to-use-heading"
+          className="text-3xl font-extrabold tracking-tight text-[hsl(var(--color-foreground))] mb-3"
+          itemProp="name"
+        >
+          {t('tools.howToUse')}
+        </h2>
+        <p className="text-[hsl(var(--color-muted-foreground))] max-w-lg mx-auto text-sm font-medium">
+          Follow these three simple steps to process your file in seconds.
+        </p>
+      </div>
+      <div className="relative max-w-5xl mx-auto px-4 mt-8">
+        {/* Horizontal Connector Line for Desktop */}
+        <div className="hidden md:block absolute top-[28px] left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-[#FF5FA2]/40 to-[#7C5CFF]/40 z-0" />
+        
+        <ol className="grid gap-8 md:grid-cols-3 relative z-10" data-testid="how-to-use-steps">
+          {steps.map((step) => (
+            <li
+              key={step.step}
+              className="flex flex-col items-center text-center"
+              data-testid={`how-to-step-${step.step}`}
+              id={`step-${step.step}`}
+              itemScope
+              itemProp="step"
+              itemType="https://schema.org/HowToStep"
+            >
+              <meta itemProp="position" content={String(step.step)} />
               <div
-                className="w-10 h-10 rounded-xl bg-[hsl(var(--color-primary)/0.1)] text-[hsl(var(--color-primary))] flex items-center justify-center font-bold text-lg mb-4"
+                className="w-14 h-14 rounded-full bg-white border-2 border-[hsl(var(--color-primary))] text-[hsl(var(--color-primary))] flex items-center justify-center font-bold text-xl mb-4 shadow-md z-10 relative"
                 aria-hidden="true"
               >
                 {step.step}
               </div>
-              <h3 className="text-lg font-semibold text-[hsl(var(--color-foreground))] mb-2" itemProp="name">
+              <h3 className="text-lg font-bold text-[hsl(var(--color-foreground))] mb-2" itemProp="name">
                 {step.title}
               </h3>
-              <p className="text-sm text-[hsl(var(--color-muted-foreground))]" itemProp="text">
+              <p className="text-sm text-[hsl(var(--color-muted-foreground))] max-w-xs leading-relaxed" itemProp="text">
                 {step.description}
               </p>
-            </Card>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
@@ -342,43 +437,73 @@ interface FAQSectionProps {
 
 function FAQSection({ faq }: FAQSectionProps) {
   const t = useTranslations();
+  const [openIndexes, setOpenIndexes] = useState<Record<number, boolean>>({});
+
   if (!faq || faq.length === 0) return null;
+
+  const toggleIndex = (index: number) => {
+    setOpenIndexes(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   return (
     <section
-      className="mt-10"
+      className="mt-20 py-12 border-t border-[hsl(var(--color-border))]/60 animate-in fade-in"
       data-testid="tool-page-faq"
       aria-labelledby="faq-heading"
       itemScope
       itemType="https://schema.org/FAQPage"
     >
-      <h2
-        id="faq-heading"
-        className="text-2xl font-bold text-[hsl(var(--color-foreground))] mb-6"
-      >
-        {t('tools.faq')}
-      </h2>
-      <div className="space-y-4" data-testid="faq-list">
-        {faq.map((item, index) => (
-          <Card
-            key={index}
-            variant="outlined"
-            className="glass-card"
-            data-testid={`faq-item-${index}`}
-            itemScope
-            itemProp="mainEntity"
-            itemType="https://schema.org/Question"
-          >
-            <h3 className="font-semibold text-[hsl(var(--color-foreground))]" itemProp="name">
-              {item.question}
-            </h3>
-            <div itemScope itemProp="acceptedAnswer" itemType="https://schema.org/Answer">
-              <p className="mt-2 text-sm text-[hsl(var(--color-muted-foreground))]" itemProp="text">
-                {item.answer}
-              </p>
+      <div className="text-center mb-12">
+        <h2
+          id="faq-heading"
+          className="text-3xl font-extrabold tracking-tight text-[hsl(var(--color-foreground))] mb-3"
+        >
+          {t('tools.faq')}
+        </h2>
+        <p className="text-[hsl(var(--color-muted-foreground))] max-w-lg mx-auto text-sm font-medium">
+          Have questions? Find quick answers about this tool here.
+        </p>
+      </div>
+      <div className="max-w-3xl mx-auto space-y-4" data-testid="faq-list">
+        {faq.map((item, index) => {
+          const isOpen = !!openIndexes[index];
+          return (
+            <div 
+              key={index}
+              className="bg-white border border-[hsl(var(--color-border))]/60 rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:border-[hsl(var(--color-primary))]/20"
+              itemScope
+              itemProp="mainEntity"
+              itemType="https://schema.org/Question"
+            >
+              <button
+                onClick={() => toggleIndex(index)}
+                className="w-full flex items-center justify-between p-6 text-left font-bold text-base sm:text-lg text-[hsl(var(--color-foreground))] cursor-pointer select-none"
+                aria-expanded={isOpen}
+              >
+                <span itemProp="name">{item.question}</span>
+                <ChevronDown className={`w-5 h-5 text-[hsl(var(--color-muted-foreground))] transition-transform duration-300 shrink-0 ml-4 ${isOpen ? 'rotate-180 text-[hsl(var(--color-primary))]' : ''}`} />
+              </button>
+              
+              <div 
+                className={`transition-all duration-300 ease-in-out ${
+                  isOpen ? 'max-h-[500px] border-t border-[hsl(var(--color-border))]/30 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+                }`}
+              >
+                <div 
+                  className="p-6 text-sm text-[hsl(var(--color-muted-foreground))] leading-relaxed bg-[hsl(var(--color-background))]/30"
+                  itemScope 
+                  itemProp="acceptedAnswer" 
+                  itemType="https://schema.org/Answer"
+                >
+                  <p itemProp="text">{item.answer}</p>
+                </div>
+              </div>
             </div>
-          </Card>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

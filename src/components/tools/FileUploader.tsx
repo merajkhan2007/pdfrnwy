@@ -371,9 +371,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
 
   const baseStyles = `
     relative flex flex-col items-center justify-center
-    w-full min-h-[250px] p-10
+    w-full min-h-[280px] p-8
     border-2 border-dashed
-    rounded-[2rem]
+    rounded-[var(--radius-xl)]
     transition-all duration-300
     cursor-pointer
     group
@@ -383,14 +383,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   const stateStyles = disabled
     ? 'border-[hsl(var(--color-muted))] bg-[hsl(var(--color-muted)/0.3)] cursor-not-allowed opacity-50'
     : isDragging
-      ? 'border-[hsl(var(--color-primary))] bg-[hsl(var(--color-primary)/0.05)] scale-[1.01] shadow-2xl shadow-primary/10'
+      ? 'border-[hsl(var(--color-primary))] bg-[hsl(var(--color-primary)/0.03)] scale-[1.01] shadow-xl shadow-[hsl(var(--color-primary))/0.03]'
       : `
-      border-[hsl(var(--color-border))] 
-      bg-[hsl(var(--color-card)/0.5)] 
+      border-[hsl(var(--color-primary))/0.25] 
+      bg-white
       hover:border-[hsl(var(--color-primary))] 
-      hover:bg-[hsl(var(--color-background))] 
-      hover:shadow-xl hover:shadow-[hsl(var(--color-primary)/0.05)]
-      glass-card
+      hover:bg-[hsl(var(--color-primary))/0.01] 
+      hover:shadow-lg hover:shadow-[hsl(var(--color-primary)/0.02)]
     `;
 
   return (
@@ -421,53 +420,62 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       />
 
       {/* Decorative background blob */}
-      <div className="absolute inset-0 overflow-hidden rounded-[2rem] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+      <div className="absolute inset-0 overflow-hidden rounded-[var(--radius-xl)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-[hsl(var(--color-primary)/0.03)] rounded-full blur-3xl" />
       </div>
 
-      {/* Upload icon */}
+      {/* Upload icon / Illustration */}
       <div className={`
-        mb-6 p-4 rounded-full transition-transform duration-300 group-hover:scale-110
-        ${isDragging ? 'bg-[hsl(var(--color-primary)/0.1)] text-[hsl(var(--color-primary))]' : 'bg-[hsl(var(--color-muted))] text-[hsl(var(--color-muted-foreground))] group-hover:bg-[hsl(var(--color-primary)/0.1)] group-hover:text-[hsl(var(--color-primary))]'}
+        mb-4 p-4 rounded-full transition-transform duration-300 group-hover:scale-110
+        ${isDragging ? 'bg-[hsl(var(--color-primary))/0.1] text-[hsl(var(--color-primary))] animate-pulse' : 'bg-[hsl(var(--color-primary))/0.05] text-[hsl(var(--color-primary))]'}
       `}>
         <UploadCloud className="w-10 h-10" aria-hidden="true" />
       </div>
 
-      {/* Label */}
-      <p className="text-xl font-semibold text-[hsl(var(--color-foreground))] mb-3 text-center">
-        {label || t('buttons.upload')}
+      {/* Label / Drag hint */}
+      <p className="text-lg font-bold text-[hsl(var(--color-foreground))] mb-1 text-center">
+        {t('fileUploader.dragDrop') || 'Drag & drop files here'}
+      </p>
+      
+      <p className="text-xs font-semibold text-[hsl(var(--color-muted-foreground))] mb-4 text-center">
+        or
       </p>
 
-      {/* Description */}
-      <div className="text-sm text-[hsl(var(--color-muted-foreground))] text-center max-w-sm leading-relaxed">
-        {description || (
-          <>
-            <p className="mb-2">{t('fileUploader.dragDrop')}</p>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[hsl(var(--color-muted)/0.5)] text-xs font-medium">
-              <span className="opacity-70">{t('fileUploader.support')}:</span>
-              <span>{accept && accept.length > 0 ? accept.join(', ') : t('fileUploader.paste')}</span>
-              {maxSize && maxSize !== Infinity && (
-                <span className="ml-1 opacity-70">
-                  ({Math.round(maxSize / (1024 * 1024))}MB)
-                </span>
-              )}
-            </div>
-          </>
-        )}
+      {/* Choose Files Button */}
+      <div className="px-6 py-3 text-sm font-bold text-white bg-primary-gradient btn-glow-hover rounded-[var(--radius-md)] shadow-md select-none transition-all mb-5">
+        {label || 'Choose PDF Files'}
       </div>
 
-      {/* File info hints - only show when multiple files allowed */}
-      {multiple && (
-        <div className="mt-6 flex flex-wrap gap-2 justify-center">
-          <span className="text-xs px-2 py-1 rounded-md bg-[hsl(var(--color-muted))] text-[hsl(var(--color-muted-foreground))]">
-            Max files: {maxFiles}
+      {/* Constraints and trust hints */}
+      <div className="text-xs text-[hsl(var(--color-muted-foreground))] text-center max-w-sm leading-relaxed space-y-2">
+        {description ? (
+          <p className="text-sm text-[hsl(var(--color-muted-foreground))]">{description}</p>
+        ) : (
+          multiple && (
+            <p className="font-semibold text-[hsl(var(--color-foreground))/0.7]">
+              Max files: {maxFiles}
+            </p>
+          )
+        )}
+        
+        <div className="flex flex-wrap gap-1.5 justify-center items-center">
+          <span className="px-2 py-0.5 rounded bg-[hsl(var(--color-muted))] font-bold text-[10px] uppercase">
+            {accept && accept.length > 0 ? accept.join(', ') : 'All Files'}
+          </span>
+          {maxSize && maxSize !== Infinity && (
+            <span className="px-2 py-0.5 rounded bg-[hsl(var(--color-muted))] font-bold text-[10px]">
+              Max {Math.round(maxSize / (1024 * 1024))}MB
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-700 font-bold text-[10px] border border-green-100">
+            <Lock className="w-3 h-3" /> Secure
           </span>
         </div>
-      )}
+      </div>
 
       {/* Drag overlay */}
       {isDragging && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[hsl(var(--color-background)/0.9)] backdrop-blur-sm rounded-[2rem] z-10 transition-opacity duration-200">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[hsl(var(--color-background)/0.9)] backdrop-blur-sm rounded-[var(--radius-xl)] z-10 transition-opacity duration-200">
           <div className="p-4 rounded-full bg-[hsl(var(--color-primary)/0.1)] text-[hsl(var(--color-primary))] mb-4 motion-safe:animate-bounce">
             <Plus className="w-8 h-8" />
           </div>
